@@ -46,7 +46,7 @@ const middleware = [
 middleware.forEach((it) => server.use(it))
 
 function getUsers() {
-  return readFile(`${__dirname}/data/users.json`, { encoding: 'utf8' })
+  return readFile(`${__dirname}/users.json`, { encoding: 'utf8' })
     .then((text) => {
       return JSON.parse(text)
     })
@@ -54,7 +54,7 @@ function getUsers() {
       const url = 'https://jsonplaceholder.typicode.com/users'
       const result = await axios(url)
         .then(({ data }) => {
-          writeFile(`${__dirname}/data/users.json`, JSON.stringify(data), { encoding: 'utf8' })
+          writeFile(`${__dirname}/users.json`, JSON.stringify(data), { encoding: 'utf8' })
           return data
         })
         .catch((err) => err)
@@ -70,7 +70,7 @@ function addUser(userData, users = []) {
   }
   const newUser = { id: newId, ...userData }
   const usersUpdated = [...users, newUser]
-  writeFile(`${__dirname}/data/users.json`, JSON.stringify(usersUpdated), { encoding: 'utf8' })
+  writeFile(`${__dirname}/users.json`, JSON.stringify(usersUpdated), { encoding: 'utf8' })
   return { status: 'success', id: newId }
 }
 
@@ -80,7 +80,7 @@ server.get('/api/v1/users', async (req, res) => {
 })
 
 server.post('/api/v1/users', async (req, res) => {
-  const result = await readFile(`${__dirname}/data/users.json`, { encoding: 'utf8' })
+  const result = await readFile(`${__dirname}/users.json`, { encoding: 'utf8' })
     .then((text) => {
       const userList = JSON.parse(text)
       return addUser(req.body, userList)
@@ -95,7 +95,7 @@ server.post('/api/v1/users', async (req, res) => {
 server.patch('/api/v1/users/:userId', async (req, res) => {
   const newData = req.body
   const { userId } = req.params
-  await readFile(`${__dirname}/data/users.json`, { encoding: 'utf8' })
+  await readFile(`${__dirname}/users.json`, { encoding: 'utf8' })
     .then((text) => {
       const users = JSON.parse(text)
       const updatedUserList = users.map((user) => {
@@ -104,7 +104,7 @@ server.patch('/api/v1/users/:userId', async (req, res) => {
         }
         return user
       })
-      writeFile(`${__dirname}/data/users.json`, JSON.stringify(updatedUserList), { encoding: 'utf8' })
+      writeFile(`${__dirname}/users.json`, JSON.stringify(updatedUserList), { encoding: 'utf8' })
     })
     .catch((err) => {
       console.log(err)
@@ -114,11 +114,13 @@ server.patch('/api/v1/users/:userId', async (req, res) => {
 
 server.delete('/api/v1/users/:userId', async (req, res) => {
   const { userId } = req.params
-  await readFile(`${__dirname}/data/users.json`, { encoding: 'utf8' })
+  await readFile(`${__dirname}/users.json`, { encoding: 'utf8' })
     .then((text) => {
       const users = JSON.parse(text)
-      const updatedUserList = users.filter((user) => user.id !== +userId)
-      writeFile(`${__dirname}/data/users.json`, JSON.stringify(updatedUserList), { encoding: 'utf8' })
+      const updatedUserList = users.filter((user) => {
+        return user.id !== +userId
+      })
+      writeFile(`${__dirname}/users.json`, JSON.stringify(updatedUserList), { encoding: 'utf8' })
     })
     .catch((err) => {
       console.log(err)
@@ -127,7 +129,7 @@ server.delete('/api/v1/users/:userId', async (req, res) => {
 })
 
 server.delete('/api/v1/users', (req, res) => {
-  unlink(`${__dirname}/data/users.json`)
+  unlink(`${__dirname}/users.json`)
   res.json({ status: 'success' })
 })
 

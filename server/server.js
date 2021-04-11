@@ -11,7 +11,7 @@ import cookieParser from 'cookie-parser'
 import config from './config'
 import Html from '../client/html'
 
-const { readFile, writeFile } = require('fs').promises
+const { writeFile, readFile, unlink } = require('fs').promises
 
 require('colors')
 
@@ -29,7 +29,7 @@ const port = process.env.PORT || 8090
 const server = express()
 
 const setHeaders = (req, res, next) => {
-  res.set('x-skillcrucial-user', '9802c396-bed1-4b07-8167-995685a9f020')  
+  res.set('x-skillcrucial-user', '9802c396-bed1-4b07-8167-995685a9f020')
   res.set('Access-Control-Expose-Headers', 'X-SKILLCRUCIAL-USER')
   next()
 }
@@ -40,77 +40,71 @@ const middleware = [
   bodyParser.urlencoded({ limit: '50mb', extended: true, parameterLimit: 50000 }),
   bodyParser.json({ limit: '50mb', extended: true }),
   cookieParser(),
-  setHeaders()
+  setHeaders
 ]
 
 middleware.forEach((it) => server.use(it))
 
 function getUsers() {
-  return readFile(`${__dirname}/data/users.json`, { encoding: 'utf8' })  
-    .then(text => {  
-      return (JSON.parse(text)) 
-  })  
-  .catch(async () => {  
-    const url = 'https://jsonplaceholder.typicode.com/users'
-    const result = await axios(url)
-      .then(({ data }) => { 
-        writeFile(`${__dirname}/data/users.json`, JSON.stringify(data), { encoding: 'utf8' })
-        return data
-      })
-      .catch((err) => err)
-    return result
-  })
+  return readFile(`${__dirname}/data/users.json`, { encoding: 'utf8' })
+    .then((text) => {
+      return JSON.parse(text)
+    })
+    .catch(async () => {
+      const url = 'https://jsonplaceholder.typicode.com/users'
+      const result = await axios(url)
+        .then(({ data }) => {
+          writeFile(`${__dirname}/data/users.json`, JSON.stringify(data), { encoding: 'utf8' })
+          return data
+        })
+        .catch((err) => err)
+      return result
+    })
 }
 
-// Функция addUser - добавляет нового пользователя в файл
-// arguments:
-//  userData - данные пользователя
-//  users - данные из файла
 function addUser(userData, users = []) {
   let newId = 1
   if (users.length !== 0) {
     const lastUser = users[users.length - 1]
     newId = lastUser.id + 1
   }
-  const newUser = { id: newId, ...userData}
-  const usersUpdated = [...users, ...newUser]
+  const newUser = { id: newId, ...userData }
+  const usersUpdated = [...users, newUser]
   writeFile(`${__dirname}/data/users.json`, JSON.stringify(usersUpdated), { encoding: 'utf8' })
   return { status: 'success', id: newId }
 }
 
 server.get('/api/v1/users', async (req, res) => {
-  const users = await getUsers() 
+  const users = await getUsers()
   res.json(users)
 })
 
 server.post('/api/v1/users', async (req, res) => {
-  const result = await readFile(`${__dirname}/data/users.json`, { encoding: 'utf8' })  
-    .then(text => {  
-      const userList = (JSON.parse(text))
+  const result = await readFile(`${__dirname}/data/users.json`, { encoding: 'utf8' })
+    .then((text) => {
+      const userList = JSON.parse(text)
       return addUser(req.body, userList)
     })
     .catch(async () => {
       return addUser(req.body)
-    })  
+    })
+
   res.json(result)
 })
 
 server.patch('/api/v1/users/:userId', async (req, res) => {
-  const newUserData = req.body
+  const newData = req.body
   const { userId } = req.params
-  await readFile(`${__dirname}/data/users.json`, 
-    { encoding: 'utf8' }) 
-    .then(text => {  
-      const userList = ( JSON.parse(text) )
-      const updatedUserList = userList.map((user) => {
-        if(user.id === +userId) {
-          return { ...user, ...newUserData }
+  await readFile(`${__dirname}/data/users.json`, { encoding: 'utf8' })
+    .then((text) => {
+      const users = JSON.parse(text)
+      const updatedUserList = users.map((user) => {
+        if (user.id === +userId) {
+          return { ...user, ...newData }
         }
         return user
       })
-      writeFile(`${__dirname}/data/users.json`, JSON.stringify(updatedUserList),{
-        encoding: 'utf8' 
-      })
+      writeFile(`${__dirname}/data/users.json`, JSON.stringify(updatedUserList), { encoding: 'utf8' })
     })
     .catch((err) => {
       console.log(err)
@@ -118,15 +112,23 @@ server.patch('/api/v1/users/:userId', async (req, res) => {
   res.json({ status: 'success', id: userId })
 })
 
-server.get('/api/v1/users/take/:numbers', async (req, res) => {
-  const { numbers } = req.params
-  const { data: users } = await axios('https://jsonplaceholder.typicode.com/users')
-  res.json(users.slice(0, +numbers))
+server.delete('/api/v1/users/:userId', async (req, res) => {
+  const { userId } = req.params
+  await readFile(`${__dirname}/data/users.json`, { encoding: 'utf8' })
+    .then((text) => {
+      const users = JSON.parse(text)
+      const updatedUserList = users.filter((user) => user.id !== +userId)
+      writeFile(`${__dirname}/data/users.json`, JSON.stringify(updatedUserList), { encoding: 'utf8' })
+    })
+    .catch((err) => {
+      console.log(err)
+    })
+  res.json({ status: 'success', id: userId })
 })
 
-server.get('/api/v1/users/:name', (req, res) => {
-  const { name } = req.params
-  res.json({ name })
+server.delete('/api/v1/users', (req, res) => {
+  unlink(`${__dirname}/data/users.json`)
+  res.json({ status: 'success' })
 })
 
 server.use('/api/', (req, res) => {
